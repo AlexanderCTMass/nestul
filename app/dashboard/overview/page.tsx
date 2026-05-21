@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {useRouter} from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -11,8 +11,10 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import Stepper from '@mui/material/Stepper';
@@ -22,17 +24,16 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import {CheckCircle} from '@phosphor-icons/react/dist/ssr/CheckCircle';
-import {ClockCounterClockwise} from '@phosphor-icons/react/dist/ssr/ClockCounterClockwise';
-import {CloudArrowUp} from '@phosphor-icons/react/dist/ssr/CloudArrowUp';
-import {DownloadSimple} from '@phosphor-icons/react/dist/ssr/DownloadSimple';
-import {Gavel} from '@phosphor-icons/react/dist/ssr/Gavel';
-import {WarningCircle} from '@phosphor-icons/react/dist/ssr/WarningCircle';
-import {X} from '@phosphor-icons/react/dist/ssr/X';
+import { CheckCircle } from '@phosphor-icons/react/dist/ssr/CheckCircle';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/ssr/ClockCounterClockwise';
+import { CloudArrowUp } from '@phosphor-icons/react/dist/ssr/CloudArrowUp';
+import { DownloadSimple } from '@phosphor-icons/react/dist/ssr/DownloadSimple';
+import { Gavel } from '@phosphor-icons/react/dist/ssr/Gavel';
+import { WarningCircle } from '@phosphor-icons/react/dist/ssr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/ssr/X';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr/MagnifyingGlass';
-import {config} from '@/config';
-import {Summary} from '@/components/dashboard/overview/summary';
-import {Stack, Grid} from '@mui/material';
+
+import { Summary } from '@/components/dashboard/overview/summary';
 
 const VERIFICATION_STEPS = [
     'Загрузить файл',
@@ -253,44 +254,46 @@ export default function Page() {
 
     return (
         <Box sx={{p: 4}}>
-            <Stack spacing={4}>
-                <Stack direction={{xs: 'column', sm: 'row'}} spacing={3} sx={{alignItems: 'flex-start'}}>
+            <Stack sx={{gap: 4}}>
+                <Stack direction={{xs: 'column', sm: 'row'}} sx={{gap: 3, alignItems: 'flex-start'}}>
                     <Box sx={{flex: '1 1 auto'}}>
                         <Typography variant="h4">Реестр-Закупка</Typography>
                         <Typography color="text.secondary" variant="body1">
                             Автоматическая проверка соответствия требованиям ТР ТС в Реестре промышленной продукции
                         </Typography>
                     </Box>
-                    <Button
-                        startIcon={<MagnifyingGlass />}
-                        variant="outlined"
-                        onClick={() => router.push('/manual-check')}
-                    >
-                        Ручная проверка
-                    </Button>
-                    <Button
-                        startIcon={<ClockCounterClockwise/>}
-                        variant="outlined"
-                        onClick={() => router.push('/history')}
-                    >
-                        История
-                    </Button>
+                    <Stack direction="row" sx={{gap: 1}}>
+                        <Button
+                            startIcon={<MagnifyingGlass />}
+                            variant="outlined"
+                            onClick={() => router.push('/manual-check')}
+                        >
+                            Ручная проверка
+                        </Button>
+                        <Button
+                            startIcon={<ClockCounterClockwise/>}
+                            variant="outlined"
+                            onClick={() => router.push('/history')}
+                        >
+                            История
+                        </Button>
+                    </Stack>
                 </Stack>
 
                 <Grid container spacing={4}>
-                    <Grid size={{md: 4, xs: 12}}>
+                    <Grid item md={4} xs={12}>
                         <Summary amount={143} diff={12} icon={CheckCircle} title="Пройдено" trend="up"/>
                     </Grid>
-                    <Grid size={{md: 4, xs: 12}}>
+                    <Grid item md={4} xs={12}>
                         <Summary amount={12} diff={-5} icon={WarningCircle} title="Отклонено" trend="down"/>
                     </Grid>
-                    <Grid size={{md: 4, xs: 12}}>
+                    <Grid item md={4} xs={12}>
                         <Summary amount={85} diff={0} icon={Gavel} title="Всего" trend="neutral"/>
                     </Grid>
 
-                    <Grid size={{md: 8, xs: 12}}>
+                    <Grid item md={8} xs={12}>
                         <Paper elevation={2} sx={{p: 3}}>
-                            <Stack spacing={3}>
+                            <Stack sx={{gap: 3}}>
                                 <Typography variant="h6">Новая сверка</Typography>
                                 <Typography color="text.secondary" variant="body2">
                                     Загрузите файл заявки в формате .xlsx для проверки в Реестре
@@ -315,7 +318,7 @@ export default function Page() {
                                     }}
                                 >
                                     {isProcessing ? (
-                                        <Stack spacing={2} sx={{alignItems: "center"}}>
+                                        <Stack sx={{gap: 2, alignItems: "center"}}>
                                             <CircularProgress size={48}/>
                                             <Typography variant="body1">{progressMessage}</Typography>
                                             <Box sx={{width: '60%'}}>
@@ -375,11 +378,11 @@ export default function Page() {
                         )}
                     </Grid>
 
-                    <Grid size={{md: 4, xs: 12}}>
-                        <Stack spacing={4}>
+                    <Grid item md={4} xs={12}>
+                        <Stack sx={{gap: 4}}>
                             <Paper elevation={2} sx={{p: 3}}>
                                 <Typography variant="h6">Статистика за Апрель 2026</Typography>
-                                <Stack spacing={2} sx={{mt: 2}}>
+                                <Stack sx={{gap: 2, mt: 2}}>
                                     <Box sx={{textAlign: 'center'}}>
                                         <CheckCircle size={48} weight="duotone" style={{color: '#2E7D32'}}/>
                                         <Typography color="success.main" variant="h4">143</Typography>
@@ -394,7 +397,7 @@ export default function Page() {
                             </Paper>
 
                             <Paper elevation={2} sx={{p: 3}}>
-                                <Stack spacing={2}>
+                                <Stack sx={{gap: 2}}>
                                     <Typography variant="h6">ГИСП статус</Typography>
                                     <Box>
                                         <Typography color="text.secondary" variant="body2">
@@ -406,7 +409,7 @@ export default function Page() {
                                             variant="determinate"
                                         />
                                         <Typography sx={{mt: 1, textAlign: 'right'}} variant="body2">
-                                            Актуальная версия • • 57 / 57 MB
+                                            Актуальная версия • 57 / 57 MB
                                         </Typography>
                                     </Box>
                                     <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
@@ -420,18 +423,18 @@ export default function Page() {
                         </Stack>
                     </Grid>
 
-                    <Grid size={{md: 12, xs: 12}}>
+                    <Grid item md={12} xs={12}>
                         <Paper elevation={2} sx={{p: 3}}>
-                            <Stack spacing={3}>
+                            <Stack sx={{gap: 3}}>
                                 <Typography variant="h6">Последние проверки</Typography>
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>File</TableCell>
-                                            <TableCell>Date</TableCell>
-                                            <TableCell>Items</TableCell>
-                                            <TableCell>Status</TableCell>
-                                            <TableCell align="right">Action</TableCell>
+                                            <TableCell>Файл</TableCell>
+                                            <TableCell>Дата</TableCell>
+                                            <TableCell>Позиций</TableCell>
+                                            <TableCell>Статус</TableCell>
+                                            <TableCell align="right">Действие</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -484,13 +487,13 @@ export default function Page() {
             </Stack>
 
             <Dialog onClose={() => setShowLimitDialog(false)} open={showLimitDialog}>
-                <DialogTitle>File too large</DialogTitle>
+                <DialogTitle>Файл слишком большой</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        File size exceeds 100 MB. Processing may take longer.
+                        Размер файла превышает 100 МБ. Обработка может занять больше времени.
                     </Typography>
                     <Typography sx={{mt: 2}}>
-                        Consider splitting the file into smaller parts.
+                        Рекомендуется разделить файл на несколько частей.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
