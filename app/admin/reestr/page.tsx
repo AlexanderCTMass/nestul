@@ -42,30 +42,8 @@ interface SearchResponse {
     totalPages: number;
 }
 
-interface CategoryInfo {
-    company?: string;
-    inn?: string;
-    tnved?: string;
-    basis?: string;
-    dateAdded?: string;
-    expiryDate?: string;
-}
-
 type SortField = 'regNumber' | 'name' | 'okpd2' | 'createdAt';
 type SortOrder = 'asc' | 'desc';
-
-const formatDate = (dateStr: string | undefined): string => {
-    if (!dateStr) return '—';
-    try {
-        return new Date(dateStr).toLocaleDateString('ru-RU', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-        });
-    } catch {
-        return dateStr;
-    }
-};
 
 export default function ReestrViewPage() {
     const router = useRouter();
@@ -81,6 +59,7 @@ export default function ReestrViewPage() {
     const [sortOrder, setSortOrder] = React.useState<SortOrder>('desc');
     const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
 
+    // Debounce поиска
     React.useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(search);
@@ -89,6 +68,7 @@ export default function ReestrViewPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
+    // Загрузка данных
     React.useEffect(() => {
         const fetchEntries = async () => {
             setLoading(true);
@@ -136,18 +116,10 @@ export default function ReestrViewPage() {
         setPage(0);
     };
 
-    const parseCategory = (category: string | null): CategoryInfo => {
+    const parseCategory = (category: string | null): Record<string, unknown> => {
         if (!category) return {};
         try {
-            const parsed = JSON.parse(category);
-            return {
-                company: typeof parsed.company === 'string' ? parsed.company : undefined,
-                inn: typeof parsed.inn === 'string' ? parsed.inn : undefined,
-                tnved: typeof parsed.tnved === 'string' ? parsed.tnved : undefined,
-                basis: typeof parsed.basis === 'string' ? parsed.basis : undefined,
-                dateAdded: typeof parsed.dateAdded === 'string' ? parsed.dateAdded : undefined,
-                expiryDate: typeof parsed.expiryDate === 'string' ? parsed.expiryDate : undefined,
-            };
+            return JSON.parse(category);
         } catch {
             return {};
         }
@@ -162,10 +134,10 @@ export default function ReestrViewPage() {
 
     return (
         <Box sx={{ p: 4 }}>
-            <Stack sx={{ gap: 4 }}>
+            <Stack spacing={4}>
                 {/* Заголовок */}
-                <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 3, alignItems: 'flex-start' }}>
-                    <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ alignItems: 'flex-start' }}>
+                    <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                         <Button startIcon={<ArrowLeft />} onClick={() => router.push('/admin')}>
                             Назад
                         </Button>
@@ -186,7 +158,7 @@ export default function ReestrViewPage() {
 
                 {/* Поиск и фильтры */}
                 <Paper elevation={2} sx={{ p: 2 }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
                         <TextField
                             placeholder="Поиск по всем полям..."
                             value={search}
@@ -212,7 +184,7 @@ export default function ReestrViewPage() {
                                 ) : undefined,
                             }}
                         />
-                        <Stack direction="row" sx={{ gap: 1, flexShrink: 0 }}>
+                        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                             <Chip
                                 icon={<Funnel />}
                                 label={sortOrder === 'asc' ? '↑ Возр.' : '↓ Убыв.'}
@@ -264,14 +236,14 @@ export default function ReestrViewPage() {
                                                     direction={sortField === col.field ? sortOrder : 'asc'}
                                                     onClick={() => handleSort(col.field)}
                                                 >
-                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                                    <Typography variant="body2" sx={{fontWeight:"bold"}}>
                                                         {col.label}
                                                     </Typography>
                                                 </TableSortLabel>
                                             </TableCell>
                                         ))}
                                         <TableCell sx={{ width: '80px' }} align="center">
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                            <Typography variant="body2" sx={{fontWeight:"bold"}}>
                                                 Детали
                                             </Typography>
                                         </TableCell>
@@ -328,15 +300,16 @@ export default function ReestrViewPage() {
                                                     </TableCell>
                                                 </TableRow>
 
+                                                {/* Расширенная информация */}
                                                 {isExpanded && (
                                                     <TableRow>
                                                         <TableCell colSpan={6} sx={{ backgroundColor: 'action.hover', p: 3 }}>
-                                                            <Stack sx={{ gap: 1 }}>
+                                                            <Stack spacing={1}>
                                                                 <Typography variant="subtitle2" color="primary">
                                                                     Дополнительная информация
                                                                 </Typography>
                                                                 {Object.keys(cat).length > 0 ? (
-                                                                    <Stack sx={{ gap: 0.5 }}>
+                                                                    <Stack spacing={0.5}>
                                                                         {cat.company && (
                                                                             <Typography variant="body2">
                                                                                 <strong>Предприятие:</strong> {String(cat.company)}
@@ -360,13 +333,13 @@ export default function ReestrViewPage() {
                                                                         {cat.dateAdded && (
                                                                             <Typography variant="body2">
                                                                                 <strong>Дата внесения:</strong>{' '}
-                                                                                {formatDate(String(cat.dateAdded))}
+                                                                                {new Date(String(cat.dateAdded)).toLocaleDateString('ru-RU')}
                                                                             </Typography>
                                                                         )}
                                                                         {cat.expiryDate && (
                                                                             <Typography variant="body2">
                                                                                 <strong>Срок действия:</strong>{' '}
-                                                                                {formatDate(String(cat.expiryDate))}
+                                                                                {new Date(String(cat.expiryDate)).toLocaleDateString('ru-RU')}
                                                                             </Typography>
                                                                         )}
                                                                     </Stack>
