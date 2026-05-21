@@ -129,7 +129,7 @@ export default function Page() {
 
         try {
             setProgressPercent(10);
-            setProgressMessage('Uploading file...');
+            setProgressMessage('Загрузка файла...');
 
             const formData = new FormData();
             formData.append('file', file);
@@ -141,14 +141,14 @@ export default function Page() {
 
             if (!uploadResponse.ok) {
                 const errData = await uploadResponse.json();
-                throw new Error(errData.message || 'Upload failed');
+                throw new Error(errData.message || 'Ошибка загрузки');
             }
 
             const {fileId} = await uploadResponse.json();
 
             setActiveStep(2);
             setProgressPercent(25);
-            setProgressMessage('Validating structure...');
+            setProgressMessage('Валидация структуры...');
 
             const validateResponse = await fetch('/api/verification/validate', {
                 method: 'POST',
@@ -158,12 +158,12 @@ export default function Page() {
 
             if (!validateResponse.ok) {
                 const errData = await validateResponse.json();
-                throw new Error(errData.message || 'Validation failed');
+                throw new Error(errData.message || 'Валидация не пройдена');
             }
 
             setActiveStep(3);
             setProgressPercent(45);
-            setProgressMessage('Checking Registry...');
+            setProgressMessage('Проверка реестра...');
 
             const reestrResponse = await fetch('/api/verification/check-reestr', {
                 method: 'POST',
@@ -173,12 +173,12 @@ export default function Page() {
 
             if (!reestrResponse.ok) {
                 const errData = await reestrResponse.json();
-                throw new Error(errData.message || 'Registry check failed');
+                throw new Error(errData.message || 'Реестр не прошел проверку');
             }
 
             setActiveStep(4);
             setProgressPercent(75);
-            setProgressMessage('NLP analysis...');
+            setProgressMessage('NLP анализ...');
 
             const nlpResponse = await fetch('/api/verification/nlp-analysis', {
                 method: 'POST',
@@ -188,14 +188,14 @@ export default function Page() {
 
             if (!nlpResponse.ok) {
                 const errData = await nlpResponse.json();
-                throw new Error(errData.message || 'NLP analysis failed');
+                throw new Error(errData.message || 'NLP анализ не успешен');
             }
 
             const {checkId} = await nlpResponse.json();
 
             setActiveStep(5);
             setProgressPercent(100);
-            setProgressMessage('Report ready!');
+            setProgressMessage('Отчет готов!');
 
             setRecentChecks((prev) => [
                 {
