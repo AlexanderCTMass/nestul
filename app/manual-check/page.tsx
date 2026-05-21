@@ -204,7 +204,7 @@ export default function ManualCheckPage() {
                         </Stack>
 
                         <Grid container spacing={2}>
-                            <Grid size={{md: 8, xs: 12}}>
+                            <Grid item xs={12} md={8}>
                                 <TextField
                                     fullWidth
                                     placeholder="Введите реестровый номер (например: 10618244) или название товара..."
@@ -223,7 +223,7 @@ export default function ManualCheckPage() {
                                     }}
                                 />
                             </Grid>
-                            <Grid size={{md: 4, xs: 12}}>
+                            <Grid item xs={12} md={4}>
                                 <TextField
                                     fullWidth
                                     placeholder="ОКПД2 (опционально)"
@@ -289,7 +289,7 @@ export default function ManualCheckPage() {
                                         <Divider/>
 
                                         <Grid container spacing={3}>
-                                            <Grid size={{md: 6, xs: 12}}>
+                                            <Grid item xs={12} md={6}>
                                                 <Stack spacing={1}>
                                                     <Typography variant="body2" color="text.secondary">
                                                         Наименование продукции
@@ -310,7 +310,7 @@ export default function ManualCheckPage() {
                                                 const cat = parseCategory(result.exactMatch.category);
                                                 if (!cat) return null;
                                                 return (
-                                                    <Grid size={{md: 6, xs: 12}}>
+                                                    <Grid item xs={12} md={6}>
                                                         <Stack spacing={1}>
                                                             {cat.company && (
                                                                 <Typography variant="body2">
