@@ -3,7 +3,13 @@ import path from 'path';
 import { readFile } from 'fs/promises';
 
 export async function readExcelFile(fileId: string) {
-    const filePath = path.join(process.cwd(), 'uploads', `${fileId}.xlsx`);
+    // Определяем директорию в зависимости от окружения
+    const isVercel = process.env.VERCEL === '1';
+    const uploadDir = isVercel
+        ? '/tmp/uploads'
+        : path.join(process.cwd(), 'uploads');
+
+    const filePath = path.join(uploadDir, `${fileId}.xlsx`);
     const fileBuffer = await readFile(filePath);
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
 
