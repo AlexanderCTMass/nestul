@@ -1,3 +1,6 @@
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
@@ -13,19 +16,30 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: 'File not found' }, { status: 400 });
         }
 
-        // Генерируем ID для файла
-        const fileId = crypto.randomUUID();
+        // Используем ТОЛЬКО /tmp директорию на Vercel
+        const uploadDir = '/tmp/uploads/reestr';
 
-        // Читаем файл напрямую в память без сохранения на диск
+        // Создаем директорию, если её нет
+        if (!existsSync(uploadDir)) {
+            await mkdir(uploadDir, { recursive: true });
+            console.log('📁 Создана директория:', uploadDir);
+        }
+
+        const fileId = crypto.randomUUID();
+        const filePath = path.join(uploadDir, `${fileId}.xlsx`);
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Парсим Excel напрямую из buffer
+        // Сохраняем файл
+        await writeFile(filePath, buffer);
+        console.log('💾 Файл сохранен:', filePath);
+
+        // Парсинг Excel
         const workbook = XLSX.read(buffer, { type: 'buffer' });
 
         console.log('📋 Доступные листы:', workbook.SheetNames);
 
-        // Ищем лист "Продукция" (основной лист Реестра ГИСП)
+        // Ищем лист "Продукция"
         const sheetName = workbook.SheetNames.find(
             (name) => name === 'Продукция' || name.toLowerCase().includes('продукц')
         ) || workbook.SheetNames[0];
@@ -37,39 +51,21 @@ export async function POST(request: NextRequest) {
 
         console.log('📊 Всего строк:', jsonData.length);
 
-        // Реальная структура ГИСП:
-        // Строка 0: "Время выгрузки: 30.04.2026, 01:01:05"
-        // Строка 1: пустая
-        // Строка 2: ЗАГОЛОВКИ (0-based)
-        //   Колонка 0 (A): "Предприятие"
-        //   Колонка 1 (B): "ИНН"
-        //   Колонка 2 (C): "ОГРН"
-        //   Колонка 6 (G): "Реестровый номер" ← ВАЖНО!
-        //   Колонка 8 (I): "Дата внесения в реестр"
-        //   Колонка 9 (J): "Срок действия"
-        //   Колонка 11 (L): "Наименование продукции" ← ВАЖНО!
-        //   Колонка 12 (M): "ОКПД2" ← ВАЖНО!
-        //   Колонка 13 (N): "ТН ВЭД"
-        //   Колонка 22 (W): "Основание: Наименование" (СТ-1)
-        // Строка 3+: ДАННЫЕ
-
-        const REG_NUMBER_COL = 6;   // Колонка G - Реестровый номер
-        const NAME_COL = 11;         // Колонка L - Наименование продукции
-        const OKPD2_COL = 12;        // Колонка M - ОКПД2
-        const COMPANY_COL = 0;       // Колонка A - Предприятие
-        const INN_COL = 1;           // Колонка B - ИНН
-        const DATE_COL = 8;          // Колонка I - Дата внесения
-        const EXPIRY_COL = 9;        // Колонка J - Срок действия
-        const TNVED_COL = 13;        // Колонка N - ТН ВЭД
-        const BASIS_COL = 22;        // Колонка W - Основание (СТ-1 и др.)
+        const REG_NUMBER_COL = 6;
+        const NAME_COL = 11;
+        const OKPD2_COL = 12;
+        const COMPANY_COL = 0;
+        const INN_COL = 1;
+        const DATE_COL = 8;
+        const EXPIRY_COL = 9;
+        const TNVED_COL = 13;
+        const BASIS_COL = 22;
 
         let inserted = 0;
-        let updated = 0;
         let skipped = 0;
         let errors = 0;
         let totalRows = 0;
 
-        // Начинаем со строки 3 (после заголовков)
         const DATA_START_ROW = 3;
 
         for (let i = DATA_START_ROW; i < jsonData.length; i++) {
@@ -92,7 +88,6 @@ export async function POST(request: NextRequest) {
                 const tnved = String(row[TNVED_COL] || '').trim();
                 const basis = String(row[BASIS_COL] || '').trim();
 
-                // Парсим даты
                 let dateAdded: Date | null = null;
                 let expiryDate: Date | null = null;
 
@@ -102,9 +97,7 @@ export async function POST(request: NextRequest) {
                         dateAdded = new Date(dateStr);
                         if (isNaN(dateAdded.getTime())) dateAdded = null;
                     }
-                } catch {
-                    // Игнорируем ошибки парсинга даты
-                }
+                } catch {}
 
                 try {
                     const expiryStr = String(row[EXPIRY_COL] || '').trim();
@@ -112,11 +105,8 @@ export async function POST(request: NextRequest) {
                         expiryDate = new Date(expiryStr);
                         if (isNaN(expiryDate.getTime())) expiryDate = null;
                     }
-                } catch {
-                    // Игнорируем ошибки парсинга даты
-                }
+                } catch {}
 
-                // Сохраняем в БД
                 await prisma.reestrEntry.upsert({
                     where: { regNumber },
                     create: {
@@ -150,23 +140,21 @@ export async function POST(request: NextRequest) {
                 inserted++;
             } catch (rowError) {
                 errors++;
-                console.error(`❌ Ошибка в строке ${i + 1} (реестр. № ${regNumber}):`, rowError);
+                console.error(`❌ Ошибка в строке ${i + 1}:`, rowError);
             }
         }
 
         const duration = Date.now() - startTime;
-        const updatedCount = inserted; // upsert создаёт или обновляет
 
         console.log('✅ Загрузка завершена:', {
             totalRows,
             inserted,
-            updated: updatedCount,
             skipped,
             errors,
             duration: `${(duration / 1000).toFixed(1)}s`,
         });
 
-        // Сохраняем информацию о загрузке в БД
+        // Сохраняем информацию о загрузке
         await prisma.verificationCheck.create({
             data: {
                 id: crypto.randomUUID(),
@@ -181,7 +169,6 @@ export async function POST(request: NextRequest) {
                     fileName: file.name,
                     sheetName,
                     inserted,
-                    updated: updatedCount,
                     skipped,
                     errors,
                     duration,
@@ -196,7 +183,6 @@ export async function POST(request: NextRequest) {
             stats: {
                 totalRows,
                 inserted,
-                updated: updatedCount,
                 skipped,
                 errors,
                 duration,

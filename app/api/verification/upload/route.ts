@@ -21,10 +21,16 @@ export async function POST(request: NextRequest) {
         }
 
         const fileId = crypto.randomUUID();
-        const uploadDir = path.join(process.cwd(), 'uploads');
+
+        // Используем /tmp на Vercel или локальную папку в разработке
+        const isVercel = process.env.VERCEL === '1';
+        const uploadDir = isVercel
+            ? '/tmp/uploads'
+            : path.join(process.cwd(), 'uploads');
 
         if (!existsSync(uploadDir)) {
             await mkdir(uploadDir, { recursive: true });
+            console.log('📁 Создана директория:', uploadDir);
         }
 
         const filePath = path.join(uploadDir, `${fileId}.xlsx`);
@@ -32,10 +38,13 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
         await writeFile(filePath, buffer);
 
+        console.log('💾 Файл сохранен:', filePath);
+
         return NextResponse.json({
             fileId,
             fileName: file.name,
             size: file.size,
+            uploadDir: isVercel ? '/tmp' : 'local',
         });
     } catch (error) {
         console.error('Upload error:', error);
