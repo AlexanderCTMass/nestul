@@ -16,20 +16,37 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: 'File not found' }, { status: 400 });
         }
 
-        // Сохранение файла
-        const fileId = crypto.randomUUID();
-        const uploadDir = path.join(process.cwd(), 'uploads', 'reestr');
+        // Определяем директорию для загрузки в зависимости от окружения
+        const isVercel = process.env.VERCEL === '1';
+        const isDev = process.env.NODE_ENV === 'development';
 
+        let uploadDir: string;
+        if (isVercel) {
+            // На Vercel используем /tmp директорию
+            uploadDir = path.join('/tmp', 'uploads', 'reestr');
+        } else if (isDev) {
+            // В разработке используем локальную папку
+            uploadDir = path.join(process.cwd(), 'uploads', 'reestr');
+        } else {
+            // Для других продакшен окружений
+            uploadDir = path.join('/tmp', 'uploads', 'reestr');
+        }
+
+        // Создаем директорию, если её нет
         if (!existsSync(uploadDir)) {
             await mkdir(uploadDir, { recursive: true });
         }
 
+        // Сохранение файла (опционально, можно сразу читать из buffer)
+        const fileId = crypto.randomUUID();
         const filePath = path.join(uploadDir, `${fileId}.xlsx`);
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
+
+        // Сохраняем файл во временную директорию
         await writeFile(filePath, buffer);
 
-        // Парсинг Excel
+        // Парсинг Excel (читаем из buffer, не из файла)
         const workbook = XLSX.read(buffer, { type: 'buffer' });
 
         console.log('📋 Доступные листы:', workbook.SheetNames);
@@ -199,6 +216,15 @@ export async function POST(request: NextRequest) {
                 createdAt: new Date(),
             },
         });
+
+        // Опционально: удаляем временный файл после обработки
+        try {
+            const { unlink } = await import('fs/promises');
+            await unlink(filePath);
+            console.log('🗑️ Временный файл удален:', filePath);
+        } catch (cleanupError) {
+            console.warn('⚠️ Не удалось удалить временный файл:', cleanupError);
+        }
 
         return NextResponse.json({
             message: 'Registry uploaded successfully',
