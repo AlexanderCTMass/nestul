@@ -42,6 +42,16 @@ interface SearchResponse {
     totalPages: number;
 }
 
+interface CategoryData {
+    company?: string | number;
+    inn?: string | number;
+    tnved?: string | number;
+    basis?: string | number;
+    dateAdded?: string;
+    expiryDate?: string;
+    [key: string]: unknown;
+}
+
 type SortField = 'regNumber' | 'name' | 'okpd2' | 'createdAt';
 type SortOrder = 'asc' | 'desc';
 
@@ -116,10 +126,11 @@ export default function ReestrViewPage() {
         setPage(0);
     };
 
-    const parseCategory = (category: string | null): Record<string, unknown> => {
+    const parseCategory = (category: string | null): CategoryData => {
         if (!category) return {};
         try {
-            return JSON.parse(category);
+            const parsed = JSON.parse(category);
+            return parsed as CategoryData;
         } catch {
             return {};
         }
