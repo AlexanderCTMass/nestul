@@ -7,7 +7,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
+import {Grid} from '@mui/material';
 import { ArrowLeft } from '@phosphor-icons/react/dist/ssr/ArrowLeft';
 import { Database } from '@phosphor-icons/react/dist/ssr/Database';
 import { ShieldCheck } from '@phosphor-icons/react/dist/ssr/ShieldCheck';
@@ -32,13 +32,7 @@ export default function AdminPage() {
         <Box sx={{ p: 4 }}>
             <Stack spacing={4}>
                 {/* Заголовок */}
-                <Stack
-                    spacing={3}
-                    sx={{
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        alignItems: 'flex-start'
-                    }}
-                >
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ alignItems: 'flex-start' }}>
                     <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                         <Button startIcon={<ArrowLeft />} onClick={() => router.push('/')}>
                             Back
@@ -79,7 +73,7 @@ export default function AdminPage() {
                 {/* Основной контент */}
                 <Grid container spacing={4}>
                     {/* Загрузка Реестра */}
-                    <Grid item xs={12} md={8}>
+                    <Grid size={{ md: 8, xs: 12 }}>
                         <ReestrUpload
                             key={`upload-${refreshKey}`}
                             onUploadComplete={handleUploadComplete}
@@ -87,7 +81,7 @@ export default function AdminPage() {
                     </Grid>
 
                     {/* Статус базы данных */}
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ md: 4, xs: 12 }}>
                         <ReestrStatus
                             key={`status-${refreshKey}`}
                             onClearComplete={handleClearComplete}
@@ -95,7 +89,7 @@ export default function AdminPage() {
                     </Grid>
 
                     {/* Статистика */}
-                    <Grid item xs={12}>
+                    <Grid size={{ md: 12, xs: 12 }}>
                         <AdminStats key={`stats-${refreshKey}`} />
                     </Grid>
                 </Grid>
