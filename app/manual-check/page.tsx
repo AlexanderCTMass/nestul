@@ -212,12 +212,14 @@ export default function ManualCheckPage() {
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     disabled={loading}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <MagnifyingGlass size={20} />
-                                            </InputAdornment>
-                                        ),
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <MagnifyingGlass size={20} />
+                                                </InputAdornment>
+                                            ),
+                                        },
                                     }}
                                 />
                             </Grid>
