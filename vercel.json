@@ -1,0 +1,9 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "cache": [
+    "node_modules/.cache",
+    ".next/cache"
+  ]
+}
