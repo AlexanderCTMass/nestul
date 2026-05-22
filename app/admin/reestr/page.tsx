@@ -165,23 +165,25 @@ export default function ReestrViewPage() {
                             onChange={(e) => setSearch(e.target.value)}
                             size="small"
                             fullWidth
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <MagnifyingGlass size={20} />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: search ? (
-                                    <InputAdornment position="end">
-                                        <Button
-                                            size="small"
-                                            onClick={() => setSearch('')}
-                                            sx={{ minWidth: 'auto', p: 0.5 }}
-                                        >
-                                            <X size={16} />
-                                        </Button>
-                                    </InputAdornment>
-                                ) : undefined,
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <MagnifyingGlass size={20} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: search ? (
+                                        <InputAdornment position="end">
+                                            <Button
+                                                size="small"
+                                                onClick={() => setSearch('')}
+                                                sx={{ minWidth: 'auto', p: 0.5 }}
+                                            >
+                                                <X size={16} />
+                                            </Button>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                },
                             }}
                         />
                         <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
