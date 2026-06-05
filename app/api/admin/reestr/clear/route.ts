@@ -8,23 +8,21 @@ export async function DELETE() {
         // Удаляем все записи Реестра
         await prisma.reestrEntry.deleteMany();
 
-        // Логируем очистку
+        // Логируем очистку - ИСПРАВЛЕНО: убираем обертку data
         await prisma.verificationCheck.create({
-            data: {
-                id: crypto.randomUUID(),
-                fileId: 'admin-clear',
-                fileName: 'Database cleared by admin',
-                status: 'completed',
-                totalRows: count,
-                criticalErrors: 0,
-                warnings: 0,
-                nlpResults: JSON.stringify({
-                    type: 'database_clear',
-                    deletedEntries: count,
-                    timestamp: new Date().toISOString(),
-                }),
-                createdAt: new Date(),
-            },
+            id: crypto.randomUUID(),
+            fileId: 'admin-clear',
+            fileName: 'Database cleared by admin',
+            status: 'completed',
+            totalRows: count,
+            criticalErrors: 0,
+            warnings: 0,
+            nlpResults: JSON.stringify({
+                type: 'database_clear',
+                deletedEntries: count,
+                timestamp: new Date().toISOString(),
+            }),
+            createdAt: new Date().toISOString(),
         });
 
         return NextResponse.json({

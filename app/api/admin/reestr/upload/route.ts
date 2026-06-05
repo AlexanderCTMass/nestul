@@ -170,27 +170,25 @@ export async function POST(request: NextRequest) {
 
         // Сохраняем информацию о загрузке
         await prisma.verificationCheck.create({
-            data: {
-                id: crypto.randomUUID(),
-                fileId: fileId,
-                fileName: `Registry upload: ${file.name}`,
-                status: 'completed',
-                totalRows: totalRows,
-                criticalErrors: errors,
-                warnings: skipped,
-                nlpResults: JSON.stringify({
-                    type: 'registry_upload',
-                    fileName: file.name,
-                    sheetName,
-                    inserted,
-                    updated,
-                    skipped,
-                    errors,
-                    duration,
-                    timestamp: new Date().toISOString(),
-                }),
-                createdAt: new Date().toISOString(), // ИСПРАВЛЕНО: передаем строкой
-            },
+            id: crypto.randomUUID(),
+            fileId: fileId,
+            fileName: `Registry upload: ${file.name}`,
+            status: 'completed',
+            totalRows: totalRows,
+            criticalErrors: errors,
+            warnings: skipped,
+            nlpResults: JSON.stringify({
+                type: 'registry_upload',
+                fileName: file.name,
+                sheetName,
+                inserted,
+                updated,
+                skipped,
+                errors,
+                duration,
+                timestamp: new Date().toISOString(),
+            }),
+            createdAt: new Date().toISOString(),
         });
 
         return NextResponse.json({

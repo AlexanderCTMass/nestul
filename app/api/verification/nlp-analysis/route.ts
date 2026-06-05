@@ -132,17 +132,15 @@ export async function POST(request: NextRequest) {
 
         // ИСПРАВЛЕНО: Сохраняем с правильным форматом даты
         await prisma.verificationCheck.create({
-            data: {
-                id: checkId,
-                fileId: fileId,
-                fileName: `Zayavka_${fileId.slice(0, 8)}.xlsx`,
-                status: criticalCount > 0 ? 'failed' : 'completed',
-                totalRows: jsonData.length - 4,
-                criticalErrors: criticalCount,
-                warnings: warningCount,
-                nlpResults: JSON.stringify(nlpResults),
-                createdAt: new Date().toISOString(),
-            },
+            id: checkId,
+            fileId: fileId,
+            fileName: `Zayavka_${fileId.slice(0, 8)}.xlsx`,
+            status: criticalCount > 0 ? 'failed' : 'completed',
+            totalRows: jsonData.length - 4,
+            criticalErrors: criticalCount,
+            warnings: warningCount,
+            nlpResults: JSON.stringify(nlpResults),
+            createdAt: new Date().toISOString(),
         });
 
         console.log(`✅ Результаты сохранены с ID: ${checkId}`);

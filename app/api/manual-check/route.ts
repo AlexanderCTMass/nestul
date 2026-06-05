@@ -66,17 +66,15 @@ export async function POST(request: NextRequest) {
 
         // ИСПРАВЛЕНО: Добавлен await для сохранения истории
         await prisma.verificationCheck.create({
-            data: {
-                id: checkId,
-                fileId: 'manual-check',
-                fileName: `Manual check: ${trimmedQuery}`,
-                status: exactMatch ? 'completed' : 'failed',
-                totalRows: 1,
-                criticalErrors: exactMatch ? 0 : 1,
-                warnings: partialMatches.length > 0 && !exactMatch ? 1 : 0,
-                nlpResults: JSON.stringify(result),
-                createdAt: new Date(),
-            },
+            id: checkId,
+            fileId: 'manual-check',
+            fileName: `Manual check: ${trimmedQuery}`,
+            status: exactMatch ? 'completed' : 'failed',
+            totalRows: 1,
+            criticalErrors: exactMatch ? 0 : 1,
+            warnings: partialMatches.length > 0 && !exactMatch ? 1 : 0,
+            nlpResults: JSON.stringify(result),
+            createdAt: new Date().toISOString(),
         });
 
         console.log(`📝 История сохранена: ${checkId}`);

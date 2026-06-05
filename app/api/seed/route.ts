@@ -29,7 +29,13 @@ export async function GET() {
         ];
 
         for (const item of testData) {
-            await prisma.reestrEntry.create({ data: item });
+            await prisma.reestrEntry.create({
+                regNumber: item.regNumber,
+                name: item.name,
+                okpd2: item.okpd2,
+                okved2: item.okved2,
+                category: null,
+            });
         }
 
         return NextResponse.json({

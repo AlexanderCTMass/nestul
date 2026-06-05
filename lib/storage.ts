@@ -263,7 +263,7 @@ export const checksStorage = {
         return found;
     },
 
-    async create(data: Omit<VerificationCheck, 'createdAt' | 'updatedAt'>): Promise<VerificationCheck> {
+    async create(data: Omit<VerificationCheck, 'updatedAt'>): Promise<VerificationCheck> {
         const state = await loadChecks();
         const check: VerificationCheck = {
             ...data,
