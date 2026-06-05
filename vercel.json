@@ -10,7 +10,7 @@
     }
   },
   "env": {
-    "DATABASE_URL": "@database_url"
+    "DATABASE_URL": "postgres://422af4026d85c823f30de6af5d15cc1f37970c972011081a9bfab71cb1850899:sk_Q9uX9J79ldYcZ_DtrxY3M@db.prisma.io:5432/postgres?sslmode=require"
   },
   "headers": [
     {
