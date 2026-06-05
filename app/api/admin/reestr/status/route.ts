@@ -1,3 +1,4 @@
+// app/api/admin/reestr/status/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { stat } from 'fs/promises';
@@ -12,24 +13,16 @@ export async function GET() {
             where: {
                 fileName: { startsWith: 'Registry upload:' },
             },
-            orderBy: { createdAt: 'desc' },
         });
 
         // Размер файла БД
         let dbSize = '0 MB';
         try {
-            const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+            const dbPath = path.join(process.cwd(), 'data', 'reestr.json');
             const dbStats = await stat(dbPath);
             dbSize = `${(dbStats.size / (1024 * 1024)).toFixed(1)} MB`;
         } catch {
-            // Файл может быть в корне
-            try {
-                const dbPath = path.join(process.cwd(), 'dev.db');
-                const dbStats = await stat(dbPath);
-                dbSize = `${(dbStats.size / (1024 * 1024)).toFixed(1)} MB`;
-            } catch {
-                dbSize = 'Unknown';
-            }
+            dbSize = 'Unknown';
         }
 
         const status: 'healthy' | 'empty' | 'error' =
@@ -37,7 +30,7 @@ export async function GET() {
 
         return NextResponse.json({
             totalEntries,
-            lastUpdated: lastUpload?.createdAt?.toISOString() || null,
+            lastUpdated: lastUpload?.createdAt || null, // ИСПРАВЛЕНО: возвращаем как есть
             dbSize,
             status,
         });
@@ -45,7 +38,7 @@ export async function GET() {
         console.error('Status error:', error);
         return NextResponse.json(
             { totalEntries: 0, lastUpdated: null, dbSize: '0 MB', status: 'error' },
-            { status: 200 } // Возвращаем 200 даже при ошибке
+            { status: 200 }
         );
     }
 }

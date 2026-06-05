@@ -1,3 +1,4 @@
+// components/admin/reestr-status.tsx
 'use client';
 
 import * as React from 'react';
@@ -13,10 +14,10 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import {Database} from '@phosphor-icons/react/dist/ssr/Database';
-import {Trash} from '@phosphor-icons/react/dist/ssr/Trash';
-import {CheckCircle} from '@phosphor-icons/react/dist/ssr/CheckCircle';
-import {WarningCircle} from '@phosphor-icons/react/dist/ssr/WarningCircle';
+import { Database } from '@phosphor-icons/react/dist/ssr/Database';
+import { Trash } from '@phosphor-icons/react/dist/ssr/Trash';
+import { CheckCircle } from '@phosphor-icons/react/dist/ssr/CheckCircle';
+import { WarningCircle } from '@phosphor-icons/react/dist/ssr/WarningCircle';
 
 interface ReestrStatusProps {
     onClearComplete: () => void;
@@ -32,13 +33,17 @@ interface DBStatus {
 const fetcher = (url: string): Promise<DBStatus> =>
     fetch(url).then((res) => res.json());
 
-export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
+export function ReestrStatus({ onClearComplete }: ReestrStatusProps) {
     const {
         data: status,
         error,
         isLoading,
         mutate,
-    } = useSWR<DBStatus>('/api/admin/reestr/status', fetcher);
+    } = useSWR<DBStatus>('/api/admin/reestr/status', fetcher, {
+        revalidateOnFocus: false,
+        revalidateOnReconnect: false,
+        refreshInterval: 30000,
+    });
 
     const [clearDialogOpen, setClearDialogOpen] = React.useState(false);
     const [clearing, setClearing] = React.useState(false);
@@ -53,6 +58,8 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
             if (response.ok) {
                 await mutate();
                 onClearComplete();
+            } else {
+                console.error('Clear failed:', await response.text());
             }
         } catch (error) {
             console.error('Clear error:', error);
@@ -62,19 +69,37 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
         }
     };
 
+    // ИСПРАВЛЕНО: Безопасное форматирование даты
+    const formatDate = (dateStr: string | null) => {
+        if (!dateStr) return 'Never';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            return date.toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        } catch {
+            return 'Never';
+        }
+    };
+
     if (isLoading) {
         return (
-            <Paper elevation={2} sx={{p: 3, textAlign: 'center'}}>
-                <CircularProgress/>
+            <Paper elevation={2} sx={{ p: 3, textAlign: 'center' }}>
+                <CircularProgress />
             </Paper>
         );
     }
 
     if (error || !status) {
         return (
-            <Paper elevation={2} sx={{p: 3}}>
-                <Stack spacing={2} sx={{alignItems: 'center'}}>
-                    <WarningCircle size={48} weight="duotone" style={{color: '#D32F2F'}}/>
+            <Paper elevation={2} sx={{ p: 3 }}>
+                <Stack spacing={2} sx={{ alignItems: 'center' }}>
+                    <WarningCircle size={48} weight="duotone" style={{ color: '#D32F2F' }} />
                     <Typography color="error.main">Failed to load database status</Typography>
                     <Button variant="outlined" onClick={() => mutate()}>
                         Retry
@@ -86,23 +111,23 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
 
     return (
         <>
-            <Paper elevation={2} sx={{p: 3}}>
+            <Paper elevation={2} sx={{ p: 3 }}>
                 <Stack spacing={3}>
-                    <Stack direction="row" spacing={2} sx={{alignItems: 'center'}}>
-                        <Database size={24} weight="duotone"/>
+                    <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+                        <Database size={24} weight="duotone" />
                         <Typography variant="h6">Database Status</Typography>
                     </Stack>
 
                     <Stack spacing={2}>
-                        <Box sx={{textAlign: 'center'}}>
+                        <Box sx={{ textAlign: 'center' }}>
                             {status.status === 'healthy' ? (
-                                <CheckCircle size={48} weight="duotone" style={{color: '#2E7D32'}}/>
+                                <CheckCircle size={48} weight="duotone" style={{ color: '#2E7D32' }} />
                             ) : status.status === 'empty' ? (
-                                <WarningCircle size={48} weight="duotone" style={{color: '#ED6C02'}}/>
+                                <WarningCircle size={48} weight="duotone" style={{ color: '#ED6C02' }} />
                             ) : (
-                                <WarningCircle size={48} weight="duotone" style={{color: '#D32F2F'}}/>
+                                <WarningCircle size={48} weight="duotone" style={{ color: '#D32F2F' }} />
                             )}
-                            <Typography sx={{mt: 1}} variant="h4">
+                            <Typography sx={{ mt: 1 }} variant="h4">
                                 {status.totalEntries.toLocaleString()}
                             </Typography>
                             <Typography color="text.secondary" variant="body2">
@@ -111,7 +136,7 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
                         </Box>
 
                         <LinearProgress
-                            sx={{height: 8, borderRadius: 4}}
+                            sx={{ height: 8, borderRadius: 4 }}
                             value={status.status === 'healthy' ? 100 : status.status === 'empty' ? 0 : 50}
                             variant="determinate"
                             color={status.status === 'healthy' ? 'success' : status.status === 'empty' ? 'warning' : 'error'}
@@ -122,36 +147,27 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
                                 <strong>Size:</strong> {status.dbSize}
                             </Typography>
                             <Typography variant="body2">
-                                <strong>Last updated:</strong>{' '}
-                                {status.lastUpdated
-                                    ? new Date(status.lastUpdated).toLocaleDateString('ru-RU', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })
-                                    : 'Never'}
+                                <strong>Last updated:</strong> {formatDate(status.lastUpdated)}
                             </Typography>
                         </Box>
 
-                        <Box sx={{display: 'flex', gap: 1}}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button
                                 variant="outlined"
                                 size="small"
                                 onClick={() => mutate()}
-                                sx={{flex: 1}}
+                                sx={{ flex: 1 }}
                             >
                                 Refresh
                             </Button>
                             <Button
-                                startIcon={<Trash/>}
+                                startIcon={<Trash />}
                                 variant="outlined"
                                 color="error"
                                 size="small"
                                 onClick={() => setClearDialogOpen(true)}
-                                disabled={status.totalEntries === 0}
-                                sx={{flex: 1}}
+                                disabled={status.totalEntries === 0 || clearing}
+                                sx={{ flex: 1 }}
                             >
                                 Clear
                             </Button>
@@ -167,7 +183,7 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
                         This action will delete all {status.totalEntries.toLocaleString()} entries
                         from the Registry database.
                     </Typography>
-                    <Typography sx={{mt: 2, fontWeight: "bold"}} color="error.main">
+                    <Typography sx={{ mt: 2, fontWeight: "bold" }} color="error.main">
                         This action cannot be undone.
                     </Typography>
                 </DialogContent>
@@ -180,7 +196,7 @@ export function ReestrStatus({onClearComplete}: ReestrStatusProps) {
                         color="error"
                         variant="contained"
                         disabled={clearing}
-                        startIcon={clearing ? <CircularProgress size={16}/> : <Trash/>}
+                        startIcon={clearing ? <CircularProgress size={16} /> : <Trash />}
                     >
                         {clearing ? 'Clearing...' : 'Clear All'}
                     </Button>

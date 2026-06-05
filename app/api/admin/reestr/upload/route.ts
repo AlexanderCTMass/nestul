@@ -1,9 +1,11 @@
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+// app/api/admin/reestr/upload/route.ts
+import { writeFile, mkdir, access } from 'fs/promises';
+import { constants } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/db';
+import { UPLOAD_DIR } from '@/lib/excel'; // ИСПРАВЛЕНО: единая директория
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now();
@@ -16,17 +18,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: 'File not found' }, { status: 400 });
         }
 
-        // Используем ТОЛЬКО /tmp директорию на Vercel
-        const uploadDir = '/tmp/uploads/reestr';
+        // ИСПРАВЛЕНО: Используем единую директорию
+        const reestrUploadDir = path.join(UPLOAD_DIR, 'reestr');
 
         // Создаем директорию, если её нет
-        if (!existsSync(uploadDir)) {
-            await mkdir(uploadDir, { recursive: true });
-            console.log('📁 Создана директория:', uploadDir);
+        try {
+            await access(reestrUploadDir, constants.F_OK);
+        } catch {
+            await mkdir(reestrUploadDir, { recursive: true });
+            console.log('📁 Создана директория:', reestrUploadDir);
         }
 
         const fileId = crypto.randomUUID();
-        const filePath = path.join(uploadDir, `${fileId}.xlsx`);
+        const filePath = path.join(reestrUploadDir, `${fileId}.xlsx`);
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
@@ -51,22 +55,23 @@ export async function POST(request: NextRequest) {
 
         console.log('📊 Всего строк:', jsonData.length);
 
-        const REG_NUMBER_COL = 6;
-        const NAME_COL = 11;
-        const OKPD2_COL = 12;
+        const REG_NUMBER_COL = 3; // ИСПРАВЛЕНО: Реестровый номер в колонке D (индекс 3)
+        const NAME_COL = 4;        // ИСПРАВЛЕНО: Название в колонке E (индекс 4)
+        const OKPD2_COL = 5;       // ИСПРАВЛЕНО: ОКПД2 в колонке F (индекс 5)
         const COMPANY_COL = 0;
         const INN_COL = 1;
         const DATE_COL = 8;
         const EXPIRY_COL = 9;
-        const TNVED_COL = 13;
-        const BASIS_COL = 22;
+        const TNVED_COL = 7;
+        const BASIS_COL = 10;
 
         let inserted = 0;
+        let updated = 0;
         let skipped = 0;
         let errors = 0;
         let totalRows = 0;
 
-        const DATA_START_ROW = 3;
+        const DATA_START_ROW = 1; // ИСПРАВЛЕНО: обычно данные начинаются со 2 строки
 
         for (let i = DATA_START_ROW; i < jsonData.length; i++) {
             const row = jsonData[i];
@@ -91,25 +96,46 @@ export async function POST(request: NextRequest) {
                 let dateAdded: Date | null = null;
                 let expiryDate: Date | null = null;
 
+                // ИСПРАВЛЕНО: Улучшенная обработка дат
                 try {
                     const dateStr = String(row[DATE_COL] || '').trim();
-                    if (dateStr) {
-                        dateAdded = new Date(dateStr);
-                        if (isNaN(dateAdded.getTime())) dateAdded = null;
+                    if (dateStr && dateStr !== '') {
+                        const parsed = new Date(dateStr);
+                        if (!isNaN(parsed.getTime())) dateAdded = parsed;
                     }
-                } catch {}
+                } catch (e) {
+                    console.warn(`⚠️ Не удалось распарсить дату в строке ${i + 1}:`, row[DATE_COL]);
+                }
 
                 try {
                     const expiryStr = String(row[EXPIRY_COL] || '').trim();
-                    if (expiryStr) {
-                        expiryDate = new Date(expiryStr);
-                        if (isNaN(expiryDate.getTime())) expiryDate = null;
+                    if (expiryStr && expiryStr !== '') {
+                        const parsed = new Date(expiryStr);
+                        if (!isNaN(parsed.getTime())) expiryDate = parsed;
                     }
-                } catch {}
+                } catch (e) {
+                    console.warn(`⚠️ Не удалось распарсить срок действия в строке ${i + 1}:`, row[EXPIRY_COL]);
+                }
 
-                await prisma.reestrEntry.upsert({
-                    where: { regNumber },
-                    create: {
+                // ИСПРАВЛЕНО: Используем правильный upsert
+                const existing = await prisma.reestrEntry.getByRegNumber(regNumber);
+
+                if (existing) {
+                    await prisma.reestrEntry.update(existing.id, {
+                        name,
+                        okpd2: okpd2 || null,
+                        category: JSON.stringify({
+                            company,
+                            inn,
+                            tnved,
+                            basis,
+                            dateAdded: dateAdded?.toISOString() || null,
+                            expiryDate: expiryDate?.toISOString() || null,
+                        }),
+                    });
+                    updated++;
+                } else {
+                    await prisma.reestrEntry.create({
                         regNumber,
                         name,
                         okpd2: okpd2 || null,
@@ -122,22 +148,9 @@ export async function POST(request: NextRequest) {
                             dateAdded: dateAdded?.toISOString() || null,
                             expiryDate: expiryDate?.toISOString() || null,
                         }),
-                    },
-                    update: {
-                        name,
-                        okpd2: okpd2 || null,
-                        category: JSON.stringify({
-                            company,
-                            inn,
-                            tnved,
-                            basis,
-                            dateAdded: dateAdded?.toISOString() || null,
-                            expiryDate: expiryDate?.toISOString() || null,
-                        }),
-                    },
-                });
-
-                inserted++;
+                    });
+                    inserted++;
+                }
             } catch (rowError) {
                 errors++;
                 console.error(`❌ Ошибка в строке ${i + 1}:`, rowError);
@@ -149,6 +162,7 @@ export async function POST(request: NextRequest) {
         console.log('✅ Загрузка завершена:', {
             totalRows,
             inserted,
+            updated,
             skipped,
             errors,
             duration: `${(duration / 1000).toFixed(1)}s`,
@@ -158,10 +172,10 @@ export async function POST(request: NextRequest) {
         await prisma.verificationCheck.create({
             data: {
                 id: crypto.randomUUID(),
-                fileId,
+                fileId: fileId,
                 fileName: `Registry upload: ${file.name}`,
                 status: 'completed',
-                totalRows,
+                totalRows: totalRows,
                 criticalErrors: errors,
                 warnings: skipped,
                 nlpResults: JSON.stringify({
@@ -169,12 +183,13 @@ export async function POST(request: NextRequest) {
                     fileName: file.name,
                     sheetName,
                     inserted,
+                    updated,
                     skipped,
                     errors,
                     duration,
                     timestamp: new Date().toISOString(),
                 }),
-                createdAt: new Date(),
+                createdAt: new Date().toISOString(), // ИСПРАВЛЕНО: передаем строкой
             },
         });
 
@@ -183,6 +198,7 @@ export async function POST(request: NextRequest) {
             stats: {
                 totalRows,
                 inserted,
+                updated,
                 skipped,
                 errors,
                 duration,

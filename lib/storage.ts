@@ -66,17 +66,40 @@ async function saveReestr(data: any) {
     await fs.writeFile(REESTR_FILE, JSON.stringify(data, null, 2));
 }
 
-// Загрузка проверок
+// Загрузка проверок - ИСПРАВЛЕНО
 async function loadChecks() {
     await initStorage();
     const data = await fs.readFile(CHECKS_FILE, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+
+    // Нормализуем структуру
+    if (parsed.checks && Array.isArray(parsed.checks)) {
+        const normalizedChecks = parsed.checks.map((item: any) => {
+            // Если есть поле data, извлекаем его содержимое
+            if (item.data && typeof item.data === 'object') {
+                return item.data;
+            }
+            return item;
+        });
+        return { checks: normalizedChecks };
+    }
+
+    return { checks: [] };
 }
 
-// Сохранение проверок
+// Сохранение проверок - ИСПРАВЛЕНО
 async function saveChecks(data: any) {
     await initStorage();
-    await fs.writeFile(CHECKS_FILE, JSON.stringify(data, null, 2));
+    // Сохраняем в чистом формате без вложенного data
+    const toSave = {
+        checks: data.checks.map((check: any) => {
+            if (check.data) {
+                return check.data;
+            }
+            return check;
+        })
+    };
+    await fs.writeFile(CHECKS_FILE, JSON.stringify(toSave, null, 2));
 }
 
 // CRUD операции для реестра
@@ -86,7 +109,7 @@ export const reestrStorage = {
         return entries;
     },
 
-    async findFirst(where: { regNumber: string }): Promise<ReestrEntry | null> {
+    async findFirst(where: { regNumber?: string }): Promise<ReestrEntry | null> {
         const { entries } = await loadReestr();
         if (where.regNumber) {
             return entries.find((e: ReestrEntry) => e.regNumber === where.regNumber) || null;
@@ -184,12 +207,10 @@ export const reestrStorage = {
         let { entries } = await loadReestr();
 
         if (options?.where) {
-            // Простая фильтрация
             if (options.where.regNumber?.in) {
                 entries = entries.filter((e: ReestrEntry) => options.where.regNumber.in.includes(e.regNumber));
             }
             if (options.where.OR) {
-                // OR поиск
                 const search = options.where.OR[0]?.regNumber?.contains ||
                     options.where.OR[0]?.name?.contains ||
                     options.where.OR[0]?.okpd2?.contains;
@@ -225,9 +246,21 @@ export const checksStorage = {
         return checks;
     },
 
+    async findFirst(where: { fileName?: { startsWith: string } }): Promise<VerificationCheck | null> {
+        const { checks } = await loadChecks();
+        if (where.fileName?.startsWith) {
+            return checks.find((c: VerificationCheck) =>
+                c.fileName?.startsWith(where.fileName!.startsWith)
+            ) || null;
+        }
+        return null;
+    },
+
     async getById(id: string): Promise<VerificationCheck | null> {
         const { checks } = await loadChecks();
-        return checks.find((c: VerificationCheck) => c.id === id) || null;
+        const found = checks.find((c: VerificationCheck) => c.id === id) || null;
+        console.log(`🔍 getById(${id}): ${found ? 'found' : 'not found'}`);
+        return found;
     },
 
     async create(data: Omit<VerificationCheck, 'createdAt' | 'updatedAt'>): Promise<VerificationCheck> {
@@ -237,12 +270,13 @@ export const checksStorage = {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        state.checks.unshift(check); // новые в начало
+        state.checks.unshift(check);
         await saveChecks(state);
+        console.log(`✅ Created check: ${check.id}, total checks now: ${state.checks.length}`);
         return check;
     },
 
-    async count(where?: { fileName?: { startsWith?: string; not?: { startsWith?: string } } }): Promise<number> {
+    async count(where?: { fileName?: { startsWith?: string; not?: { startsWith?: string } }; createdAt?: { gte?: Date } }): Promise<number> {
         let { checks } = await loadChecks();
         if (where?.fileName?.startsWith) {
             checks = checks.filter((c: VerificationCheck) => c.fileName?.startsWith(where.fileName!.startsWith!));
@@ -298,7 +332,6 @@ export const checksStorage = {
         if (options?.take) checks = checks.slice(0, options.take);
 
         if (options?.select) {
-            // Простая проекция
             return checks.map((c: any) => {
                 const result: any = {};
                 if (options.select!.id) result.id = c.id;
@@ -327,7 +360,10 @@ export const checksStorage = {
     },
 
     async findUnique(where: { id: string }): Promise<VerificationCheck | null> {
-        return this.getById(where.id);
+        console.log(`🔍 findUnique called with id: ${where.id}`);
+        const result = await this.getById(where.id);
+        console.log(`📊 findUnique result: ${result ? 'found' : 'not found'}`);
+        return result;
     },
 
     async deleteMany(where?: { fileName?: { startsWith: string } }): Promise<{ count: number }> {
@@ -346,4 +382,10 @@ export const checksStorage = {
         await saveChecks(state);
         return { count };
     },
+};
+
+// Единый экспорт prisma
+export const prisma = {
+    reestrEntry: reestrStorage,
+    verificationCheck: checksStorage,
 };

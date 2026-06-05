@@ -11,11 +11,9 @@ export interface MatchResult {
  * Сравнивает два наименования и определяет степень их схожести
  */
 export function compareNames(reestrName: string, tzName: string): MatchResult {
-    // Нормализация: приводим к нижнему регистру, убираем лишние пробелы
     const normalizedReestr = reestrName.toLowerCase().trim();
     const normalizedTz = tzName.toLowerCase().trim();
 
-    // Точное совпадение
     if (normalizedReestr === normalizedTz) {
         return {
             relationship_type: 'EXACT_MATCH',
@@ -24,19 +22,11 @@ export function compareNames(reestrName: string, tzName: string): MatchResult {
         };
     }
 
-    // token_set_ratio - лучший выбор для названий товаров
     const tokenSetScore = fuzzball.token_set_ratio(normalizedReestr, normalizedTz);
-
-    // token_sort_ratio - сортирует слова перед сравнением
     const tokenSortScore = fuzzball.token_sort_ratio(normalizedReestr, normalizedTz);
-
-    // partial_ratio - проверяет вхождение одной строки в другую
     const partialScore = fuzzball.partial_ratio(normalizedReestr, normalizedTz);
-
-    // Берём максимальный из трёх показателей
     const finalScore = Math.max(tokenSetScore, tokenSortScore, partialScore) / 100;
 
-    // Определяем тип отношения на основе скора
     if (finalScore >= 0.85) {
         return {
             relationship_type: 'EXACT_MATCH',
@@ -65,23 +55,32 @@ export function compareNames(reestrName: string, tzName: string): MatchResult {
 }
 
 /**
- * Массовое сравнение — находит лучшие совпадения для запроса среди списка
+ * ИСПРАВЛЕНО: Добавлена поддержка пагинации для больших списков
  */
 export function findBestMatches(
     query: string,
     choices: string[],
-    limit: number = 5
+    limit: number = 5,
+    maxChoicesToProcess: number = 1000 // ИСПРАВЛЕНО: ограничение на обработку
 ): Array<{ matched: string; score: number; originalIndex: number }> {
     const normalizedQuery = query.toLowerCase().trim();
 
-    const results = choices.map((choice, index) => {
+    // ИСПРАВЛЕНО: Ограничиваем количество обрабатываемых элементов
+    const choicesToProcess = choices.slice(0, maxChoicesToProcess);
+
+    const results = choicesToProcess.map((choice, index) => {
         const normalizedChoice = choice.toLowerCase().trim();
         const score = fuzzball.token_set_ratio(normalizedQuery, normalizedChoice);
         return { matched: choice, score, originalIndex: index };
     });
 
-    return results
-        .filter(r => r.score > 40)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
+    const filtered = results.filter(r => r.score > 40);
+    const sorted = filtered.sort((a, b) => b.score - a.score);
+
+    // ИСПРАВЛЕНО: Логирование если были обрезаны данные
+    if (choices.length > maxChoicesToProcess) {
+        console.warn(`⚠️ findBestMatches: обработано только ${maxChoicesToProcess} из ${choices.length} элементов`);
+    }
+
+    return sorted.slice(0, limit);
 }

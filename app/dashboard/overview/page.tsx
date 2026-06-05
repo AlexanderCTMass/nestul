@@ -1,7 +1,8 @@
+// app/dashboard/overview/page.tsx
 'use client';
 
 import * as React from 'react';
-import {useRouter} from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,18 +23,20 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import {CheckCircle} from '@phosphor-icons/react/dist/ssr/CheckCircle';
-import {ClockCounterClockwise} from '@phosphor-icons/react/dist/ssr/ClockCounterClockwise';
-import {CloudArrowUp} from '@phosphor-icons/react/dist/ssr/CloudArrowUp';
-import {DownloadSimple} from '@phosphor-icons/react/dist/ssr/DownloadSimple';
-import {Gavel} from '@phosphor-icons/react/dist/ssr/Gavel';
-import {WarningCircle} from '@phosphor-icons/react/dist/ssr/WarningCircle';
-import {X} from '@phosphor-icons/react/dist/ssr/X';
+import { CheckCircle } from '@phosphor-icons/react/dist/ssr/CheckCircle';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/ssr/ClockCounterClockwise';
+import { CloudArrowUp } from '@phosphor-icons/react/dist/ssr/CloudArrowUp';
+import { DownloadSimple } from '@phosphor-icons/react/dist/ssr/DownloadSimple';
+import { Gavel } from '@phosphor-icons/react/dist/ssr/Gavel';
+import { WarningCircle } from '@phosphor-icons/react/dist/ssr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/ssr/X';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr/MagnifyingGlass';
-import {config} from '@/config';
-import {Summary} from '@/components/dashboard/overview/summary';
-import {Stack, Grid} from '@mui/material';
-
+import { config } from '@/config';
+import { Summary } from '@/components/dashboard/overview/summary'; // ИСПРАВЛЕНО: правильный путь
+import { Stack, Grid } from '@mui/material';
+import useSWR from 'swr';
+import { LiveReestrStatus } from '@/components/dashboard/overview/live-reestr-status';
+import { LiveStats } from '@/components/dashboard/overview/live-stats';
 const VERIFICATION_STEPS = [
     'Загрузить файл',
     'Проверить структуру',
@@ -41,6 +44,14 @@ const VERIFICATION_STEPS = [
     'Семантический анализ',
     'Отчет готов',
 ];
+
+interface DBStatus {
+    totalEntries: number;
+    lastUpdated: string | null;
+    dbSize: string;
+    status: 'healthy' | 'empty' | 'error';
+}
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 interface RecentCheck {
     id: string;
@@ -375,47 +386,19 @@ export default function Page() {
                         )}
                     </Grid>
 
-                    <Grid size={{md: 4, xs: 12}}>
+                    <Grid size={{ md: 4, xs: 12 }}>
                         <Stack spacing={4}>
-                            <Paper elevation={2} sx={{p: 3}}>
-                                <Typography variant="h6">Статистика за Апрель 2026</Typography>
-                                <Stack spacing={2} sx={{mt: 2}}>
-                                    <Box sx={{textAlign: 'center'}}>
-                                        <CheckCircle size={48} weight="duotone" style={{color: '#2E7D32'}}/>
-                                        <Typography color="success.main" variant="h4">143</Typography>
-                                        <Typography color="text.secondary" variant="body2">Пройдено</Typography>
-                                    </Box>
-                                    <Box sx={{textAlign: 'center'}}>
-                                        <WarningCircle size={48} weight="duotone" style={{color: '#D32F2F'}}/>
-                                        <Typography color="error.main" variant="h4">12</Typography>
-                                        <Typography color="text.secondary" variant="body2">Отклонено</Typography>
-                                    </Box>
-                                </Stack>
+                            {/* Статистика за месяц - ЖИВАЯ */}
+                            <Paper elevation={2} sx={{ p: 3 }}>
+                                <Typography variant="h6" sx={{ mb: 2 }}>
+                                    Статистика за месяц
+                                </Typography>
+                                <LiveStats />
                             </Paper>
 
-                            <Paper elevation={2} sx={{p: 3}}>
-                                <Stack spacing={2}>
-                                    <Typography variant="h6">ГИСП статус</Typography>
-                                    <Box>
-                                        <Typography color="text.secondary" variant="body2">
-                                            Реестр обновлен:
-                                        </Typography>
-                                        <LinearProgress
-                                            sx={{mt: 1, height: 8, borderRadius: 4}}
-                                            value={100}
-                                            variant="determinate"
-                                        />
-                                        <Typography sx={{mt: 1, textAlign: 'right'}} variant="body2">
-                                            Актуальная версия • • 57 / 57 MB
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                                        <CheckCircle size={16} style={{color: '#2E7D32'}}/>
-                                        <Typography color="text.secondary" variant="caption">
-                                            Данные обновлены 26.04.2026
-                                        </Typography>
-                                    </Box>
-                                </Stack>
+                            {/* ГИСП статус - ЖИВОЙ */}
+                            <Paper elevation={2} sx={{ p: 3 }}>
+                                <LiveReestrStatus />
                             </Paper>
                         </Stack>
                     </Grid>

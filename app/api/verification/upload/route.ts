@@ -1,7 +1,9 @@
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+// app/api/verification/upload/route.ts
+import { writeFile, mkdir, access } from 'fs/promises';
+import { constants } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { UPLOAD_DIR } from '@/lib/excel'; // ИСПРАВЛЕНО: единая директория
 
 export async function POST(request: NextRequest) {
     try {
@@ -22,18 +24,15 @@ export async function POST(request: NextRequest) {
 
         const fileId = crypto.randomUUID();
 
-        // Используем /tmp на Vercel или локальную папку в разработке
-        const isVercel = process.env.VERCEL === '1';
-        const uploadDir = isVercel
-            ? '/tmp/uploads'
-            : path.join(process.cwd(), 'uploads');
-
-        if (!existsSync(uploadDir)) {
-            await mkdir(uploadDir, { recursive: true });
-            console.log('📁 Создана директория:', uploadDir);
+        // ИСПРАВЛЕНО: Создаем директорию если её нет
+        try {
+            await access(UPLOAD_DIR, constants.F_OK);
+        } catch {
+            await mkdir(UPLOAD_DIR, { recursive: true });
+            console.log('📁 Создана директория:', UPLOAD_DIR);
         }
 
-        const filePath = path.join(uploadDir, `${fileId}.xlsx`);
+        const filePath = path.join(UPLOAD_DIR, `${fileId}.xlsx`);
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         await writeFile(filePath, buffer);
@@ -44,7 +43,7 @@ export async function POST(request: NextRequest) {
             fileId,
             fileName: file.name,
             size: file.size,
-            uploadDir: isVercel ? '/tmp' : 'local',
+            uploadDir: UPLOAD_DIR,
         });
     } catch (error) {
         console.error('Upload error:', error);

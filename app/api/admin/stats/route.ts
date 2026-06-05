@@ -1,3 +1,4 @@
+// app/api/admin/stats/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
@@ -15,13 +16,13 @@ export async function GET() {
                 }),
                 prisma.verificationCheck.count({
                     where: {
-                        createdAt: { gte: startOfDay },
+                        createdAt: { gte: startOfDay.toISOString() }, // ИСПРАВЛЕНО: передаем строкой
                         fileName: { not: { startsWith: 'Registry upload:' } },
                     },
                 }),
                 prisma.verificationCheck.count({
                     where: {
-                        createdAt: { gte: startOfMonth },
+                        createdAt: { gte: startOfMonth.toISOString() }, // ИСПРАВЛЕНО: передаем строкой
                         fileName: { not: { startsWith: 'Registry upload:' } },
                     },
                 }),
@@ -41,9 +42,22 @@ export async function GET() {
 
         // Сумма критических ошибок
         const errorSum = await prisma.verificationCheck.aggregate({
-            _sum: { criticalErrors: true },
             where: { fileName: { not: { startsWith: 'Registry upload:' } } },
+            _sum: { criticalErrors: true },
         });
+
+        // ИСПРАВЛЕНО: Безопасное преобразование даты
+        let lastCheckDate = null;
+        if (recentChecks[0]?.createdAt) {
+            try {
+                const date = new Date(recentChecks[0].createdAt);
+                if (!isNaN(date.getTime())) {
+                    lastCheckDate = date.toISOString();
+                }
+            } catch (e) {
+                console.warn('Date parsing error:', e);
+            }
+        }
 
         return NextResponse.json({
             totalEntries,
@@ -51,8 +65,11 @@ export async function GET() {
             checksToday,
             checksThisMonth,
             criticalErrorsTotal: errorSum._sum.criticalErrors || 0,
-            lastCheckDate: recentChecks[0]?.createdAt?.toISOString() || null,
-            recentChecks,
+            lastCheckDate,
+            recentChecks: recentChecks.map(check => ({
+                ...check,
+                createdAt: typeof check.createdAt === 'string' ? check.createdAt : new Date(check.createdAt).toISOString()
+            })),
         });
     } catch (error) {
         console.error('Stats error:', error);

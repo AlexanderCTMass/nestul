@@ -1,12 +1,13 @@
-import {NextRequest, NextResponse} from 'next/server';
-import {prisma} from '@/lib/storage';
+// app/api/manual-check/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db'; // ИСПРАВЛЕНО: единый импорт
 
 export async function POST(request: NextRequest) {
     try {
-        const {query, okpd2} = await request.json();
+        const { query, okpd2 } = await request.json();
 
         if (!query || typeof query !== 'string' || !query.trim()) {
-            return NextResponse.json({message: 'Введите запрос'}, {status: 400});
+            return NextResponse.json({ message: 'Введите запрос' }, { status: 400 });
         }
 
         const trimmedQuery = query.trim();
@@ -14,46 +15,32 @@ export async function POST(request: NextRequest) {
 
         // 1. Пробуем найти точное совпадение по реестровому номеру
         let exactMatch = await prisma.reestrEntry.findFirst({
-            where: {regNumber: trimmedQuery},
+            where: { regNumber: trimmedQuery }
         });
 
         // 2. Если не нашли по номеру — ищем по названию
         if (!exactMatch) {
-            exactMatch = await prisma.reestrEntry.findFirst({
-                where: {
-                    name: {
-                        contains: trimmedQuery,
-                    },
-                },
-            });
+            const allEntries = await prisma.reestrEntry.getAll();
+            exactMatch = allEntries.find(entry =>
+                entry.name.toLowerCase().includes(trimmedQuery.toLowerCase())
+            ) || null;
         }
 
         // 3. Ищем частичные совпадения (похожие)
-        const partialMatches = await prisma.reestrEntry.findMany({
-            where: {
-                OR: [
-                    {regNumber: {contains: trimmedQuery}},
-                    {name: {contains: trimmedQuery}},
-                    {okpd2: {contains: trimmedQuery}},
-                    {category: {contains: trimmedQuery}},
-                ],
-                // Исключаем точное совпадение из частичных
-                ...(exactMatch ? {id: {not: exactMatch.id}} : {}),
-            },
-            take: 10,
-            orderBy: {regNumber: 'asc'},
-        });
+        const allEntries = await prisma.reestrEntry.getAll();
+        let partialMatches = allEntries.filter(entry =>
+            entry.regNumber.includes(trimmedQuery) ||
+            entry.name.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+            (entry.okpd2 && entry.okpd2.includes(trimmedQuery)) ||
+            (entry.category && entry.category.includes(trimmedQuery))
+        ).slice(0, 10);
 
-        const totalMatches = await prisma.reestrEntry.count({
-            where: {
-                OR: [
-                    {regNumber: {contains: trimmedQuery}},
-                    {name: {contains: trimmedQuery}},
-                    {okpd2: {contains: trimmedQuery}},
-                    {category: {contains: trimmedQuery}},
-                ],
-            },
-        });
+        // Исключаем точное совпадение
+        if (exactMatch) {
+            partialMatches = partialMatches.filter(m => m.id !== exactMatch.id);
+        }
+
+        const totalMatches = exactMatch ? partialMatches.length + 1 : partialMatches.length;
 
         const result = {
             id: checkId,
@@ -74,37 +61,32 @@ export async function POST(request: NextRequest) {
                 okpd2: m.okpd2,
                 category: m.category,
             })),
-            totalMatches: exactMatch ? totalMatches - 1 : totalMatches,
+            totalMatches: totalMatches - (exactMatch ? 1 : 0),
         };
 
-        // Сохраняем в историю (асинхронно, не блокируем ответ)
-        prisma.verificationCheck
-            .create({
-                data: {
-                    id: checkId,
-                    fileId: 'manual-check',
-                    fileName: `Manual check: ${trimmedQuery}`,
-                    status: exactMatch ? 'completed' : 'failed',
-                    totalRows: 1,
-                    criticalErrors: exactMatch ? 0 : 1,
-                    warnings: partialMatches.length > 0 && !exactMatch ? 1 : 0,
-                    nlpResults: JSON.stringify(result),
-                    createdAt: new Date(),
-                },
-            })
-            .then(() => {
-                console.log(`📝 История сохранена: ${checkId}`);
-            })
-            .catch((err) => {
-                console.error('Ошибка сохранения истории:', err);
-            });
+        // ИСПРАВЛЕНО: Добавлен await для сохранения истории
+        await prisma.verificationCheck.create({
+            data: {
+                id: checkId,
+                fileId: 'manual-check',
+                fileName: `Manual check: ${trimmedQuery}`,
+                status: exactMatch ? 'completed' : 'failed',
+                totalRows: 1,
+                criticalErrors: exactMatch ? 0 : 1,
+                warnings: partialMatches.length > 0 && !exactMatch ? 1 : 0,
+                nlpResults: JSON.stringify(result),
+                createdAt: new Date(),
+            },
+        });
+
+        console.log(`📝 История сохранена: ${checkId}`);
 
         return NextResponse.json(result);
     } catch (error) {
         console.error('Manual check error:', error);
         return NextResponse.json(
-            {message: 'Ошибка при проверке'},
-            {status: 500}
+            { message: 'Ошибка при проверке' },
+            { status: 500 }
         );
     }
 }

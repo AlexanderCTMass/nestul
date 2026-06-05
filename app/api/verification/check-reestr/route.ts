@@ -1,3 +1,4 @@
+// app/api/verification/check-reestr/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { readExcelFile } from '@/lib/excel';
@@ -14,60 +15,65 @@ export async function POST(request: NextRequest) {
 
         console.log('📊 Всего строк в файле заявки:', jsonData.length);
 
+        // ИСПРАВЛЕНО: Правильные индексы колонок согласно тестовому файлу
+        const OKPD2_COL = 4;      // Колонка E (индекс 4)
+        const OKVED2_COL = 5;     // Колонка F (индекс 5)
+        const REQUIREMENT_COL = 6; // Колонка G (индекс 6)
+        const COUNTRY_COL = 7;     // Колонка H (индекс 7)
+        const REESTR_NUM_COL = 8;  // Колонка I (индекс 8)
+        const REESTR_NAME_COL = 9; // Колонка J (индекс 9)
+        const TZ_NAME_COL = 10;    // Колонка K (индекс 10)
+
         // Получаем ВСЕ реестровые номера из заявки одним запросом
         const reestrNumbersFromApplication: string[] = [];
 
-        for (let i = 4; i < jsonData.length; i++) {
-            const row = jsonData[i] as any[] | undefined;
-            if (!row || row.length === 0 || !row[4]) continue;
+        const DATA_START_ROW = 4; // Данные начинаются с 5 строки (индекс 4)
 
-            const reestrNumber = row[8]?.toString().trim();
-            if (reestrNumber) {
+        for (let i = DATA_START_ROW; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[] | undefined;
+            if (!row || row.length === 0) continue;
+
+            const reestrNumber = row[REESTR_NUM_COL]?.toString().trim();
+            if (reestrNumber && reestrNumber !== '') {
                 reestrNumbersFromApplication.push(reestrNumber);
             }
         }
 
+        // Удаляем дубликаты для оптимизации
+        const uniqueReestrNumbers = [...new Set(reestrNumbersFromApplication)];
+
         // Один массовый запрос к БД вместо N отдельных
-        const existingEntries = await prisma.reestrEntry.findMany({
-            where: {
-                regNumber: {
-                    in: reestrNumbersFromApplication,
-                },
-            },
-            select: {
-                regNumber: true,
-                name: true,
-                okpd2: true,
-                category: true,
-            },
-        });
+        const existingEntries = await prisma.reestrEntry.getManyByRegNumbers(uniqueReestrNumbers);
 
         // Создаём Map для быстрого поиска
         const reestrMap = new Map(
             existingEntries.map((entry) => [entry.regNumber, entry])
         );
 
-        console.log(`🗄️ Найдено в БД: ${existingEntries.length} из ${reestrNumbersFromApplication.length} номеров`);
+        console.log(`🗄️ Найдено в БД: ${existingEntries.length} из ${uniqueReestrNumbers.length} уникальных номеров`);
 
         // Формируем результаты
         const results = [];
 
-        for (let i = 4; i < jsonData.length; i++) {
+        for (let i = DATA_START_ROW; i < jsonData.length; i++) {
             const row = jsonData[i] as any[] | undefined;
-            if (!row || row.length === 0 || !row[4]) continue;
+            if (!row || row.length === 0) continue;
 
-            const reestrNumber = row[8]?.toString().trim();
-            const okpd2 = row[4]?.toString().trim();
-            const country = row[7]?.toString().trim();
-            const requirementType = row[6]?.toString().trim();
-            const okved2 = row[5]?.toString().trim();
+            const okpd2 = row[OKPD2_COL]?.toString().trim();
+            const okved2 = row[OKVED2_COL]?.toString().trim();
+            const requirementType = row[REQUIREMENT_COL]?.toString().trim();
+            const country = row[COUNTRY_COL]?.toString().trim();
+            const reestrNumber = row[REESTR_NUM_COL]?.toString().trim();
+            const reestrNameFromFile = row[REESTR_NAME_COL]?.toString().trim();
+            const tzName = row[TZ_NAME_COL]?.toString().trim();
 
-            const result = {
+            const result: any = {
                 row: i + 1,
                 okpd2: okpd2 || 'Не указан',
                 okved2: okved2 || 'Не указан',
                 reestrNumber: reestrNumber || null,
                 country: country || 'Не указана',
+                tzName: tzName || null,
                 status: 'pending',
                 message: '',
                 reestrName: null as string | null,
@@ -75,17 +81,13 @@ export async function POST(request: NextRequest) {
                 reestrCategory: null as Record<string, unknown> | null,
             };
 
-            if (reestrNumber) {
+            if (reestrNumber && reestrNumber !== '') {
                 const entry = reestrMap.get(reestrNumber);
 
                 if (entry) {
                     result.status = 'valid';
                     result.message = 'Номер найден в Реестре';
-
-                    // Извлекаем название из Реестра
                     result.reestrName = entry.name;
-
-                    // Извлекаем ОКПД2 из Реестра
                     result.reestrOkpd2 = entry.okpd2;
 
                     // Парсим категорию для доп. информации
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
                             const now = new Date();
                             if (expiry < now) {
                                 result.status = 'warning';
-                                result.message += ' | Срок действия записи истёк!';
+                                result.message += result.message ? ' | Срок действия записи истёк!' : 'Срок действия записи истёк!';
                             }
                         }
                     }
