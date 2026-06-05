@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now();

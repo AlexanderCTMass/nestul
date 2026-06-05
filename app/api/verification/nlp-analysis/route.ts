@@ -1,36 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { readExcelFile } from '@/lib/excel';
-
-const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || 'http://localhost:8001';
-
-interface NLPResponse {
-    relationship_type: string;
-    confidence_score: number;
-    semantic_explanation: string;
-}
-
-async function callNLPService(entityA: string, entityB: string): Promise<NLPResponse> {
-    try {
-        const response = await fetch(`${NLP_SERVICE_URL}/api/v1/compare`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entity_A: entityA, entity_B: entityB }),
-        });
-
-        if (!response.ok) throw new Error(`NLP service error: ${response.statusText}`);
-
-        return await response.json();
-    } catch (error) {
-        console.warn('NLP service unavailable, using fallback:', error);
-        const similarity = entityA.toLowerCase() === entityB.toLowerCase() ? 1 : 0;
-        return {
-            relationship_type: similarity === 1 ? 'EXACT_MATCH' : 'UNRELATED',
-            confidence_score: similarity,
-            semantic_explanation: 'Fallback: string comparison (NLP service unavailable)',
-        };
-    }
-}
+import { compareNames, findBestMatches } from '@/lib/semantic-matcher';
 
 export async function POST(request: NextRequest) {
     try {
@@ -44,34 +15,74 @@ export async function POST(request: NextRequest) {
         const checkId = crypto.randomUUID();
         const nlpResults = [];
 
+        // Получаем все названия из реестра для массового поиска
+        const allReestrEntries = await prisma.reestrEntry.findMany({
+            select: { regNumber: true, name: true, okpd2: true }
+        });
+        const reestrNames = allReestrEntries.map(e => e.name);
+        const reestrMap = new Map(allReestrEntries.map(e => [e.name, e]));
+
         for (let i = 4; i < jsonData.length; i++) {
             const row = jsonData[i] as any[] | undefined;
             if (!row || row.length === 0 || !row[4]) continue;
 
-            const entityK = row[10]?.toString().trim();
-            const entityL = row[11]?.toString().trim();
+            const tzName = row[11]?.toString().trim();
+            const reestrNumber = row[8]?.toString().trim();
 
-            if (entityK && entityL) {
-                const nlpResult = await callNLPService(entityK, entityL);
+            if (tzName) {
+                // Если есть реестровый номер, проверяем конкретную запись
+                if (reestrNumber) {
+                    const reestrEntry = await prisma.reestrEntry.findFirst({
+                        where: { regNumber: reestrNumber }
+                    });
 
-                const status =
-                    nlpResult.relationship_type === 'EXACT_MATCH' ||
-                    nlpResult.relationship_type === 'ACCEPTABLE_SYNONYM'
-                        ? 'ok'
-                        : nlpResult.relationship_type === 'RISK_OF_DIVERGENCE'
-                            ? 'critical'
-                            : 'warning';
+                    if (reestrEntry) {
+                        const comparison = compareNames(reestrEntry.name, tzName);
+                        nlpResults.push({
+                            row: i + 1,
+                            okpd2: String(row[4]),
+                            reestrName: reestrEntry.name,
+                            tzName: tzName,
+                            relationshipType: comparison.relationship_type,
+                            confidence: comparison.confidence_score,
+                            explanation: comparison.semantic_explanation,
+                            status: comparison.relationship_type === 'EXACT_MATCH' ? 'ok' :
+                                comparison.relationship_type === 'RISK_OF_DIVERGENCE' ? 'critical' : 'warning',
+                        });
+                        continue;
+                    }
+                }
 
-                nlpResults.push({
-                    row: i + 1,
-                    okpd2: String(row[4]),
-                    reestrName: entityK,
-                    tzName: entityL,
-                    relationshipType: nlpResult.relationship_type,
-                    confidence: nlpResult.confidence_score,
-                    explanation: nlpResult.semantic_explanation,
-                    status,
-                });
+                // Если нет реестрового номера или запись не найдена — ищем по названию
+                const bestMatches = findBestMatches(tzName, reestrNames, 3);
+
+                if (bestMatches.length > 0 && bestMatches[0].score > 65) {
+                    const bestMatch = bestMatches[0];
+                    const reestrEntry = reestrMap.get(bestMatch.matched);
+
+                    nlpResults.push({
+                        row: i + 1,
+                        okpd2: String(row[4]),
+                        reestrName: bestMatch.matched,
+                        tzName: tzName,
+                        relationshipType: 'ACCEPTABLE_SYNONYM',
+                        confidence: bestMatch.score / 100,
+                        explanation: `Найдено похожее наименование в реестре с ${Math.round(bestMatch.score)}% сходством`,
+                        status: 'warning',
+                        suggestedRegNumber: reestrEntry?.regNumber,
+                    });
+                } else {
+                    nlpResults.push({
+                        row: i + 1,
+                        okpd2: String(row[4]),
+                        reestrName: null,
+                        tzName: tzName,
+                        relationshipType: 'UNRELATED',
+                        confidence: bestMatches[0]?.score / 100 || 0,
+                        explanation: 'Не найдено похожих наименований в реестре',
+                        status: 'critical',
+                    });
+                }
             }
         }
 
