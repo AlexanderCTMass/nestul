@@ -9,6 +9,9 @@
       "memory": 1024
     }
   },
+  "env": {
+    "DATABASE_URL": "@database_url"
+  },
   "headers": [
     {
       "source": "/(.*)",
