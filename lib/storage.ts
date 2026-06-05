@@ -186,11 +186,36 @@ export const reestrStorage = {
         return { count };
     },
 
-    async count(where?: { regNumber?: { in: string[] } }): Promise<number> {
+    // В разделе reestrStorage, найдите метод count и замените его:
+    async count(where?: any): Promise<number> {
         const { entries } = await loadReestr();
-        if (where?.regNumber?.in) {
-            return entries.filter((e: ReestrEntry) => where.regNumber!.in.includes(e.regNumber)).length;
+
+        if (!where) {
+            return entries.length;
         }
+
+        // Поддержка поиска по regNumber
+        if (where.regNumber?.in) {
+            return entries.filter((e: ReestrEntry) =>
+                where.regNumber.in.includes(e.regNumber)
+            ).length;
+        }
+
+        // Поддержка OR поиска (для поиска по тексту)
+        if (where.OR) {
+            const search = where.OR[0]?.regNumber?.contains ||
+                where.OR[0]?.name?.contains ||
+                where.OR[0]?.okpd2?.contains;
+
+            if (search) {
+                return entries.filter((e: ReestrEntry) =>
+                    e.regNumber.includes(search) ||
+                    e.name.toLowerCase().includes(search.toLowerCase()) ||
+                    (e.okpd2 && e.okpd2.includes(search))
+                ).length;
+            }
+        }
+
         return entries.length;
     },
 

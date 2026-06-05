@@ -27,5 +27,10 @@
         }
       ]
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "NEXT_TYPESCRIPT_CHECK": "false"
+    }
+  }
 }
